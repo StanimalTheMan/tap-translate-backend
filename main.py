@@ -60,25 +60,6 @@ def get_lyrics(song_name, artist_name):
     print(lyrics)
     return lyrics
 
-    # Assuming `soup` is your BeautifulSoup object
-    # lyrics_container = soup.find("div", {"data-lyrics-container": "true"})  # Find the div with lyrics
-
-    # if lyrics_container:
-    #     lyrics = lyrics_container.get_text(separator="\n")  # Extract and format lyrics
-    #     print("LYRICS", lyrics)
-    #     return lyrics
-    # else:
-    #     print("Lyrics not found")
-
-    # Genius lyrics are stored inside <div> tags with a specific data- attribute
-    # lyrics_div = soup.find("div", class_="Lyrics__Container-sc-1ynbvzw-6")
-    # print("LYRICS", lyrics_div)
-    # if lyrics_div:
-    #     lyrics = "\n".join([p.get_text() for p in lyrics_div.find_all("p")])
-    #     return lyrics
-    # else:
-    #     return "Lyrics not found"
-
 
 @app.get("/translate")
 def translate_word():
