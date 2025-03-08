@@ -1,7 +1,9 @@
 import io
 import os
+from bs4 import BeautifulSoup
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+import requests
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from gtts import gTTS
@@ -24,9 +26,59 @@ app.add_middleware(
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
+# Genius API setup
+GENIUS_API_TOKEN = os.getenv("GENIUS_API_TOKEN")
+
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
     SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 ))
+
+def get_lyrics(song_name, artist_name):
+    """Fetch lyrics from Genius API by scraping the lyrics page"""
+    headers = {"Authorization": f"Bearer {GENIUS_API_TOKEN}"}
+    search_url = "https://api.genius.com/search"
+
+    params = {"q": f"{song_name} {artist_name}"}
+    response = requests.get(search_url, headers=headers, params=params)
+
+    if response.status_code != 200:
+        return "Error: Failed to search Genius API"
+    
+    hits = response.json().get("response", {}).get("hits", [])
+    if not hits:
+        return "Lyrics not found"
+    
+    # Step 2: Get song URL
+    song_url = hits[0]["result"]["url"]
+
+    # Step 3: Scrape lyrics from the song page
+    page = requests.get(song_url)
+    soup = BeautifulSoup(page.text, "html.parser")
+
+    lyrics_container = soup.find_all("div", {"data-lyrics-container": "true"})
+    lyrics = "\n".join([div.get_text("\n") for div in lyrics_container])
+    print(lyrics)
+    return lyrics
+
+    # Assuming `soup` is your BeautifulSoup object
+    # lyrics_container = soup.find("div", {"data-lyrics-container": "true"})  # Find the div with lyrics
+
+    # if lyrics_container:
+    #     lyrics = lyrics_container.get_text(separator="\n")  # Extract and format lyrics
+    #     print("LYRICS", lyrics)
+    #     return lyrics
+    # else:
+    #     print("Lyrics not found")
+
+    # Genius lyrics are stored inside <div> tags with a specific data- attribute
+    # lyrics_div = soup.find("div", class_="Lyrics__Container-sc-1ynbvzw-6")
+    # print("LYRICS", lyrics_div)
+    # if lyrics_div:
+    #     lyrics = "\n".join([p.get_text() for p in lyrics_div.find_all("p")])
+    #     return lyrics
+    # else:
+    #     return "Lyrics not found"
+
 
 @app.get("/translate")
 def translate_word():
@@ -35,14 +87,19 @@ def translate_word():
     return {"translation": translations.get("사랑", "Unknown")}
 
 @app.get("/songs")
-def get_songs():
+def get_songs(query: str):
     """Fetch songs related to the given word"""
-    results = sp.search(q="gaho", limit=5, type="track")
-    print(results)
-    songs = [
-        {"name": track["name"], "artist": track["artists"][0]["name"], "url": track["external_urls"]["spotify"]}
-        for track in results["tracks"]["items"]
-    ]
+    results = sp.search(q=query, limit=1, type="track")
+
+    songs = []
+    for track in results["tracks"]["items"]:
+        name = track["name"]
+        artist = track["artists"][0]["name"]
+        url = track["external_urls"]["spotify"]
+        lyrics = get_lyrics(name, artist)
+
+        songs.append({"name": name, "artist": artist, "url": url, "lyrics": lyrics})
+
     return {"songs": songs}
 
 @app.get("/tts")
