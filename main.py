@@ -3,6 +3,7 @@ import os
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from google.cloud import translate_v2 as translate
 import requests
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -33,7 +34,13 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
     SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 ))
 
-def get_lyrics(song_name, artist_name):
+# Load Google Cloud credentials
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./service-account.json"
+
+# Initalize translation client
+translate_client = translate.Client()
+
+def get_lyrics(song_name: str, artist_name: str):
     """Fetch lyrics from Genius API by scraping the lyrics page"""
     headers = {"Authorization": f"Bearer {GENIUS_API_TOKEN}"}
     search_url = "https://api.genius.com/search"
@@ -62,10 +69,9 @@ def get_lyrics(song_name, artist_name):
 
 
 @app.get("/translate")
-def translate_word():
-    """Mock translation (Replace with real API later)"""
-    translations = {"사랑": "Love", "음악": "Music", "행복": "Happiness"}
-    return {"translation": translations.get("사랑", "Unknown")}
+def translate(text: str, target_lang: str = "en"):
+    result = translate_client.translate(text, target_language=target_lang)
+    return {"translation": result["translatedText"]}
 
 @app.get("/songs")
 def get_songs(query: str):
