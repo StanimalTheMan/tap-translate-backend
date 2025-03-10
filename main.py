@@ -1,7 +1,7 @@
 import io
 import os
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, Response
+from fastapi import Body, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import translate_v2 as translate
 import requests
@@ -9,6 +9,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from gtts import gTTS
 from dotenv import load_dotenv
+from korean_romanizer.romanizer import Romanizer
 
 load_dotenv()
 
@@ -68,10 +69,21 @@ def get_lyrics(song_name: str, artist_name: str):
     return lyrics
 
 
-@app.get("/translate")
-def translate(text: str, target_lang: str = "en"):
+@app.post("/translate")
+def translate(
+    text: str = Body(..., embed=True),  # Extract 'text' from the request body
+    target_lang: str = Body("en")       # Extract 'target_lang' from the request body (default: "en")
+):
     result = translate_client.translate(text, target_language=target_lang)
     return {"translation": result["translatedText"]}
+
+@app.post("/romanize")
+def romanize(
+    text: str = Body(..., embed=True),  # Extract 'text' from the request body
+     # Extract 'target_lang' from the request body (default: "en")
+):
+    romanizer = Romanizer(text)
+    return {"romanization": romanizer.romanize()}
 
 @app.get("/songs")
 def get_songs(query: str):
