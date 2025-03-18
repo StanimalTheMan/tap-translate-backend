@@ -1,4 +1,5 @@
 import io
+from openai import OpenAI
 import os
 from bs4 import BeautifulSoup
 from fastapi import Body, FastAPI, Response
@@ -68,6 +69,31 @@ def get_lyrics(song_name: str, artist_name: str):
     print(lyrics)
     return lyrics
 
+# explain word using OPEN AI
+open_ai_client = OpenAI(api_key=os.getenv("OPEN_AI_API_KEY"))
+
+def truncate_at_sentence_end(text):
+    last_period = text.rfind(".")
+    if last_period != -1:
+        return text[:last_period + 1]
+    return text
+
+def explain_word(word, context):
+    response = open_ai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that explains words in the context of song lyrics."},
+            {"role": "user", "content": f"Explain the word  '{word}' in the context of this song lyric: '{context}'.  Provide a definition, translation (if applicable), and cultural context."},
+        ],
+        max_tokens=200,
+    )
+    return truncate_at_sentence_end(response.choices[0].message.content)
+
+@app.post("/explain_word")
+def explain_word_endpoint(word: str = Body(...), context: str = Body(...)):
+    explanation = explain_word(word, context)
+    return {"explanation": explanation}
+
 
 @app.post("/translate")
 def translate(
@@ -86,9 +112,10 @@ def romanize(
     return {"romanization": romanizer.romanize()}
 
 @app.get("/songs")
-def get_songs(query: str):
-    """Fetch songs related to the given word"""
-    results = sp.search(q=query, limit=1, type="track")
+def get_songs(query: str, artist: str):
+    """Fetch songs by exact title and artist"""
+    # Use 'track:' and 'artist:' filters to search for an exact song title and artist
+    results = sp.search(q=f'track:"{query}" artist:"{artist}"', limit=1, type="track")
 
     songs = []
     for track in results["tracks"]["items"]:
