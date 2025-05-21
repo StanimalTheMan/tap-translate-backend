@@ -1,4 +1,5 @@
 import io
+import json
 from openai import OpenAI
 import os
 from bs4 import BeautifulSoup
@@ -88,6 +89,67 @@ def explain_word(word, context):
         max_tokens=200,
     )
     return truncate_at_sentence_end(response.choices[0].message.content)
+
+@app.post("/analyze_song_comprehensive")
+async def analyze_song_comprehensive(
+    song_title: str = Body(...),
+    artist: str = Body(...),
+    lyrics: str = Body(...)
+):
+    """
+    Returns: {
+        "cultural_analysis": {roots, metaphors, impact},
+        "slang_terms": [{
+            "term": str,
+            "meaning": str,
+            "origin": str,
+            "example": str
+        }]
+    }
+    """
+    prompt = f"""
+    Analyze the song '{song_title}' by {artist} with these lyrics:
+    ---
+    {lyrics}
+    ---
+
+    Perform TWO TASKS:
+
+    A) CULTURAL ANALYSIS (JSON):
+    1. roots: Region/era/genre influences (15 words max)
+    2. metaphors: Key symbolic language (20 words max)
+    3. impact: Cultural significance (15 words max)
+
+    B) SLANG DETECTION (JSON list):
+    - Identify 3-5 most important slang/idiomatic phrases
+    - For each provide:
+        1. term: The slang phrase
+        2. meaning: Literal vs. contextual meaning
+        3. origin: Cultural/linguistic roots
+        4. example: Usage example from lyrics
+
+    Return valid JSON ONLY with this structure:
+    {{
+        "cultural_analysis": {{"roots": "", "metaphors": "", "impact": ""}},
+        "slang_terms": [{{"term": "", "meaning": "", "origin": "", "example": ""}}]
+    }}
+    """
+
+    response = open_ai_client.chat.completions.create(
+        model="gpt-4-turbo-preview",  # Better JSON handling
+        messages=[
+            {"role": "system", "content": "You are a music linguist specializing in cultural analysis."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.5,
+        max_tokens=400,
+        response_format={"type": "json_object"}
+    )
+
+    try:
+        return json.loads(response.choices[0].message.content)
+    except json.JSONDecodeError:
+        return {"error": "Analysis failed - invalid response format"}
 
 @app.post("/explain_word")
 def explain_word_endpoint(word: str = Body(...), context: str = Body(...)):
