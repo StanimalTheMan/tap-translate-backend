@@ -185,8 +185,18 @@ def get_songs(query: str, artist: str):
         artist = track["artists"][0]["name"]
         url = track["external_urls"]["spotify"]
         lyrics = get_lyrics(name, artist)
+        
+        # Get the thumbnail (album cover art)
+        # The images are sorted by size, so the first one is the largest
+        thumbnail = track["album"]["images"][0]["url"] if track["album"]["images"] else None
 
-        songs.append({"name": name, "artist": artist, "url": url, "lyrics": lyrics})
+        songs.append({
+            "name": name, 
+            "artist": artist, 
+            "url": url, 
+            "lyrics": lyrics,
+            "thumbnail": thumbnail
+        })
 
     return {"songs": songs}
 
